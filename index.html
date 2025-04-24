@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>🚗 Smart Car Simulation</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(135deg, #1e272e, #485460);
+      color: #ecf0f1;
+    }
+
+    .header {
+      text-align: center;
+      padding: 25px 10px;
+      font-size: 30px;
+      font-weight: 600;
+      color: #ffffff;
+      background: rgba(39, 174, 96, 0.95);
+      backdrop-filter: blur(8px);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+    }
+
+    .main-container {
+      display: flex;
+      flex-wrap: wrap;
+      padding: 30px;
+      gap: 30px;
+      justify-content: center;
+    }
+
+    .canvas-container {
+      flex: 1;
+      min-width: 800px;
+      background: #2f3640;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    }
+
+    #simulationCanvas {
+      width: 100%;
+      height: 300px;
+      border-radius: 12px;
+      border: 3px solid #4cd137;
+      background-color: #dcdde1;
+    }
+
+    .sidebar {
+      width: 300px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 20px;
+      padding: 24px;
+      backdrop-filter: blur(15px);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .status-label {
+      font-size: 18px;
+      margin: 10px 0;
+      font-weight: 500;
+      color: #f5f6fa;
+    }
+
+    .image-preview {
+      width: 100%;
+      height: auto;
+      margin-top: 15px;
+      border-radius: 14px;
+      border: 2px solid #7f8fa6;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s ease;
+    }
+
+    .image-preview:hover {
+      transform: scale(1.02);
+    }
+
+    .btn {
+      margin-top: 25px;
+      padding: 14px 20px;
+      background: #00a8ff;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: bold;
+      color: #fff;
+      cursor: pointer;
+      transition: background 0.3s ease, transform 0.2s ease;
+    }
+
+    .btn:hover {
+      background: #0097e6;
+      transform: scale(1.03);
+    }
+
+    @media screen and (max-width: 900px) {
+      .canvas-container {
+        min-width: 100%;
+      }
+
+      .main-container {
+        flex-direction: column;
+        align-items: center;
+      }
+
+      .sidebar {
+        width: 100%;
+        margin-top: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">🚘 Smart Car Simulation Dashboard</div>
+
+  <div class="main-container">
+    <div class="canvas-container">
+      <canvas id="simulationCanvas" width="800" height="300"></canvas>
+    </div>
+
+    <div class="sidebar">
+      <div>
+        <div class="status-label" id="statusText">Status: 🚦 Driving</div>
+        <div class="status-label" id="predictionText">🎯 Prediction: -</div>
+        <div class="status-label" id="confidenceText">📊 Confidence: -</div>
+        <img id="imagePreview" class="image-preview" src="" alt="Image Preview" />
+      </div>
+      <button class="btn" onclick="restartSimulation()">🔁 Restart Simulation</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('simulationCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const car = { x: 0, y: 110, width: 60, height: 30, speed: 3 };
+    const signalX = 700;
+    let stopped = false;
+    let crashed = false;
+    let resumed = false;
+
+    const statusText = document.getElementById("statusText");
+    const predictionText = document.getElementById("predictionText");
+    const confidenceText = document.getElementById("confidenceText");
+    const imagePreview = document.getElementById("imagePreview");
+
+    function drawRoad() {
+      ctx.fillStyle = "#2f3542";
+      ctx.fillRect(0, 130, canvas.width, 60);
+      ctx.setLineDash([15, 15]);
+      ctx.strokeStyle = "#ffffff";
+      for (let x = 0; x < canvas.width; x += 80) {
+        ctx.beginPath();
+        ctx.moveTo(x + 20, 160);
+        ctx.lineTo(x + 50, 160);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = "#222";
+      ctx.fillRect(signalX, 80, 40, 100);
+      ctx.fillStyle = "red";
+      ctx.beginPath(); ctx.arc(signalX + 20, 100, 10, 0, 2 * Math.PI); ctx.fill();
+      ctx.fillStyle = "#555";
+      ctx.beginPath(); ctx.arc(signalX + 20, 130, 10, 0, 2 * Math.PI); ctx.fill();
+      ctx.beginPath(); ctx.arc(signalX + 20, 160, 10, 0, 2 * Math.PI); ctx.fill();
+    }
+
+    function drawCar() {
+      ctx.fillStyle = crashed ? "red" : "#00a8ff";
+      ctx.fillRect(car.x, car.y, car.width, car.height);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawRoad();
+      drawCar();
+    }
+
+    function moveCar() {
+      if (!stopped) {
+        car.x += car.speed;
+        if (car.x + car.width >= signalX - 30) {
+          stopped = true;
+          statusText.textContent = "Status: 🛑 Stopped at Signal";
+          imagePreview.src = "best_match_result.jpg";
+          setTimeout(() => {
+            resumed = true;
+            moveCar();
+          }, 4000);
+        }
+      } else if (resumed && !crashed) {
+        car.x += car.speed;
+        if (car.x + car.width > canvas.width / 2 && !crashed) {
+          simulateCrash();
+        }
+      }
+
+      draw();
+      if (car.x < canvas.width && !crashed) {
+        requestAnimationFrame(moveCar);
+      }
+    }
+
+    function simulateCrash() {
+      crashed = true;
+      statusText.textContent = "Status: 💥 Crash!";
+      imagePreview.src = "adversarial_image.jpg";
+
+      fetch("adversarial_info.txt")
+        .then(response => response.text())
+        .then(data => {
+          const [prediction, confidence] = data.trim().split(',');
+          predictionText.textContent = `🎯 Prediction: ${prediction}`;
+          confidenceText.textContent = `📊 Confidence: ${confidence}%`;
+        })
+        .catch(error => {
+          console.error("Failed to load prediction info:", error);
+          predictionText.textContent = "🎯 Prediction: Unknown";
+          confidenceText.textContent = "📊 Confidence: 0.0%";
+        });
+    }
+
+    function restartSimulation() {
+      car.x = 0;
+      crashed = stopped = resumed = false;
+      statusText.textContent = "Status: 🚦 Driving";
+      predictionText.textContent = "🎯 Prediction: -";
+      confidenceText.textContent = "📊 Confidence: -";
+      imagePreview.src = "";
+      draw();
+      moveCar();
+    }
+
+    draw();
+    moveCar();
+  </script>
+
+</body>
+</html>
